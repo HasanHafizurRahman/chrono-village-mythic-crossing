@@ -1136,7 +1136,7 @@
             // -------------------------------------------------------------------------
             const roarState = {
                 cowTimer: 0,
-                cowDur: 1.55,
+                cowDur: 2.30,
                 lastCowAutoTime: -99,
                 dinoTimer: 0,
                 dinoDur: 2.80,
@@ -2656,6 +2656,7 @@
             // WEB AUDIO API REALISTIC & RELATIVE SPATIAL SOUND ENGINE + EMBEDDED MP3s
             // -------------------------------------------------------------------------
             const RELATIVE_AUDIO = {
+                cowMoo: "cow-mooo.mp3",
                 dinoRoar: "Brachiosaurus Roar.mp3",
                 dragonRoar: "dragon-roar.mp3",
                 godzillaRoar: "godzilla roar sound effect.mp3",
@@ -2674,6 +2675,7 @@
             let creakGain = null;
             let creakPanner = null;
 
+            let cowMooBuffer = null;
             let brachiosaurusRoarBuffer = null;
             let dragonRoarBuffer = null;
             let godzillaRoarBuffer = null;
@@ -2706,6 +2708,7 @@
                         });
                 };
 
+                loadBuffer(RELATIVE_AUDIO.cowMoo, buf => { cowMooBuffer = buf; });
                 loadBuffer(RELATIVE_AUDIO.dinoRoar, buf => { brachiosaurusRoarBuffer = buf; });
                 loadBuffer(RELATIVE_AUDIO.dragonRoar, buf => { dragonRoarBuffer = buf; });
                 loadBuffer(RELATIVE_AUDIO.godzillaRoar, buf => { godzillaRoarBuffer = buf; });
@@ -2860,46 +2863,24 @@
             }
 
             function triggerCowMoo(xPos) {
-                if (!audioCtx || !state.audioEnabled) return;
+                if (!state.audioEnabled) return;
                 const { proximity, pan } = getSpatialAudioParams(xPos);
                 if (proximity < 0.05) return;
 
-                const now = audioCtx.currentTime;
-                const dur = 1.45;
-                const panner = createPanner(pan);
+                if (audioCtx && cowMooBuffer) {
+                    const now = audioCtx.currentTime;
+                    const panner = createPanner(pan);
+                    const source = audioCtx.createBufferSource();
+                    source.buffer = cowMooBuffer;
+                    const gainNode = audioCtx.createGain();
+                    gainNode.gain.setValueAtTime(0.92 * Math.max(0.35, proximity), now);
+                    source.connect(gainNode);
+                    gainNode.connect(panner);
+                    source.start(now);
+                    return;
+                }
 
-                const osc = audioCtx.createOscillator();
-                osc.type = "sawtooth";
-                osc.frequency.setValueAtTime(88, now);
-                osc.frequency.linearRampToValueAtTime(106, now + 0.45);
-                osc.frequency.linearRampToValueAtTime(82, now + dur);
-
-                const f1 = audioCtx.createBiquadFilter();
-                f1.type = "bandpass";
-                f1.frequency.setValueAtTime(260, now);
-                f1.frequency.linearRampToValueAtTime(340, now + 0.5);
-                f1.Q.value = 4.5;
-
-                const f2 = audioCtx.createBiquadFilter();
-                f2.type = "bandpass";
-                f2.frequency.setValueAtTime(680, now);
-                f2.frequency.linearRampToValueAtTime(790, now + 0.5);
-                f2.Q.value = 5.0;
-
-                const vGain = audioCtx.createGain();
-                const peak = 0.052 * Math.max(0.35, proximity);
-                vGain.gain.setValueAtTime(0.0001, now);
-                vGain.gain.linearRampToValueAtTime(peak, now + 0.25);
-                vGain.gain.setValueAtTime(peak * 0.85, now + 0.85);
-                vGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
-                osc.connect(f1);
-                osc.connect(f2);
-                f1.connect(vGain);
-                f2.connect(vGain);
-                vGain.connect(panner);
-                osc.start(now);
-                osc.stop(now + dur + 0.05);
+                playRelativeSound(RELATIVE_AUDIO.cowMoo, 0.92 * Math.max(0.35, proximity));
             }
 
             function triggerSauropodFootstep(xPos) {
